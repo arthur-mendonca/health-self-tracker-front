@@ -142,4 +142,7 @@
 		@apply bg-background text-foreground;
 		font-family: "Inter", "Geist", system-ui, -apple-system, sans-serif;
 	}
+	option {
+		@apply bg-background text-foreground;
+	}
 }
