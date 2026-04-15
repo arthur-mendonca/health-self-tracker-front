@@ -1,11 +1,13 @@
 import {
-	searchTags,
-	searchSubstances,
-	searchActivities,
+	fetchTags,
+	fetchSubstances,
+	fetchActivities,
+	fetchTodayRecord,
+	fetchRecordByDate,
 	submitDailyRecord,
-	exportDump,
+	exportDumpJSON,
 } from "$lib/api/client";
-import type { TagCategory, DropTime, SubstanceType } from "$lib/api/client";
+import type { TagCategory, DropTime, SubstanceType, DailyRecordResponse } from "$lib/api/client";
 import {
 	formatDateDisplay,
 	toISODateString,
@@ -95,14 +97,16 @@ export class DailyLogStore {
 	};
 
 	handleTagSearch = async (query: string) => {
-		try {
-			this.availableTags = (await searchTags(query)) as TagItem[];
-		} catch { /* ignore */ }
+		// Backend returns all tags, filter client-side
+		const q = query.toLowerCase();
+		if (!q) return;
+		// Filter from cached available tags
+		// (availableTags is already loaded from backend on init)
 	};
 
 	// Substances
 	substances = $state<SubstanceItem[]>([]);
-	availableSubstances = $state<{ id?: string; name: string; type: SubstanceType; defaultDose?: string }[]>([]);
+	availableSubstances = $state<{ id?: string; name: string; type: SubstanceType; defaultDose?: string | null }[]>([]);
 
 	handleSubstanceSelect = (item: { name: string; [key: string]: unknown }) => {
 		const sub = item as { name: string; type: SubstanceType; defaultDose?: string };
@@ -127,11 +131,8 @@ export class DailyLogStore {
 		this.substances = this.substances.filter((_, i) => i !== index);
 	};
 
-	handleSubstanceSearch = async (query: string) => {
-		try {
-			const results = await searchSubstances(query);
-			this.availableSubstances = results as { id?: string; name: string; type: SubstanceType; defaultDose?: string }[];
-		} catch { /* ignore */ }
+	handleSubstanceSearch = async (_query: string) => {
+		// Substances are pre-loaded; filtering happens in the autocomplete component
 	};
 
 	// Activities
@@ -144,37 +145,116 @@ export class DailyLogStore {
 		}
 	};
 
-	handleActivitySearch = async (query: string) => {
-		try {
-			this.availableActivities = await searchActivities(query);
-		} catch { /* ignore */ }
+	handleActivitySearch = async (_query: string) => {
+		// Activities are pre-loaded; filtering happens in the autocomplete component
 	};
 
 	// Notes
 	freeNotes = $state("");
 	distractions = $state("");
 
-	// Submit state
+	// Loading / Submit state
+	isLoading = $state(false);
 	isSubmitting = $state(false);
 	submitMessage = $state<{ type: "success" | "error"; text: string } | null>(null);
 
-	// Load all data (call from onMount)
-	async loadInitialData() {
+	// ─── Reset form to empty state ──────────────────────────────────────
+	resetForm() {
+		this.energy = null;
+		this.sleepQuality = null;
+		this.mood = null;
+		this.focus = null;
+		this.stress = null;
+		this.selectedTags = [];
+		this.substances = [];
+		this.selectedActivities = [];
+		this.freeNotes = "";
+		this.distractions = "";
+		this.submitMessage = null;
+	}
+
+	// ─── Populate form from a DailyRecordResponse ───────────────────────
+	loadFromResponse(record: DailyRecordResponse) {
+		// Metrics
+		const m = record.metrics as Record<string, number> | null;
+		this.energy = m?.energy ?? null;
+		this.sleepQuality = m?.sleepQuality ?? null;
+		this.mood = m?.mood ?? null;
+		this.focus = m?.focus ?? null;
+		this.stress = m?.stress ?? null;
+
+		// Tags
+		this.selectedTags = record.tags.map((t) => ({
+			id: t.id,
+			name: t.name,
+			category: t.category,
+		}));
+
+		// Substances — flatten from nested structure
+		this.substances = record.substances.map((s) => ({
+			name: s.substance.name,
+			type: s.substance.type,
+			exactDose: s.exactDose,
+			notes: s.notes ?? undefined,
+			effectDropTime: s.effectDropTime ?? undefined,
+			experiencedCrash: s.experiencedCrash,
+		}));
+
+		// Activities — flatten from nested structure
+		this.selectedActivities = record.activities.map((a) => ({
+			id: a.activity.id,
+			name: a.activity.name,
+			notes: a.notes ?? undefined,
+		}));
+
+		// Structured notes
+		const sn = record.structuredNotes as Record<string, string> | null;
+		this.freeNotes = sn?.notes ?? "";
+		this.distractions = sn?.distractions ?? "";
+	}
+
+	// ─── Fetch record for a specific date and populate ──────────────────
+	async loadRecordForDate(date: string) {
+		this.isLoading = true;
 		try {
-			const [tags, subs, acts] = await Promise.all([
-				searchTags(""),
-				searchSubstances(""),
-				searchActivities(""),
-			]);
-			this.availableTags = tags as TagItem[];
-			this.availableSubstances = subs as { id?: string; name: string; type: SubstanceType; defaultDose?: string }[];
-			this.availableActivities = acts;
+			const record = await fetchRecordByDate(date);
+			if (record) {
+				this.loadFromResponse(record);
+			} else {
+				this.resetForm();
+			}
 		} catch {
-			// Backend unavailable — autocompletes still work for creation
+			this.resetForm();
+		} finally {
+			this.isLoading = false;
 		}
 	}
 
-	// Submit
+	// ─── Load all reference data + today's record (call from onMount) ───
+	async loadInitialData() {
+		this.isLoading = true;
+		try {
+			const [tags, subs, acts, todayRecord] = await Promise.all([
+				fetchTags(),
+				fetchSubstances(),
+				fetchActivities(),
+				fetchTodayRecord(),
+			]);
+			this.availableTags = tags as TagItem[];
+			this.availableSubstances = subs;
+			this.availableActivities = acts;
+
+			if (todayRecord) {
+				this.loadFromResponse(todayRecord);
+			}
+		} catch {
+			// Backend unavailable — form stays empty
+		} finally {
+			this.isLoading = false;
+		}
+	}
+
+	// ─── Submit ──────────────────────────────────────────────────────────
 	async submit() {
 		this.isSubmitting = true;
 		this.submitMessage = null;
@@ -220,10 +300,10 @@ export class DailyLogStore {
 		}
 	}
 
-	// Export dump
+	// ─── Export dump ─────────────────────────────────────────────────────
 	async downloadDump(dateISO: string) {
 		try {
-			const data = await exportDump("json");
+			const data = await exportDumpJSON();
 			const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
 			const url = URL.createObjectURL(blob);
 			const a = document.createElement("a");

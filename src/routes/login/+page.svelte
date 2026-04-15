@@ -1,0 +1,97 @@
+<script lang="ts">
+	import { goto } from "$app/navigation";
+	import { authStore } from "$lib/stores/auth.svelte";
+	import { LogIn } from "@lucide/svelte";
+
+	let email = $state("");
+	let password = $state("");
+	let error = $state<string | null>(null);
+	let isLoading = $state(false);
+
+	// If already authenticated, redirect immediately
+	$effect(() => {
+		if (authStore.isAuthenticated) {
+			goto("/", { replaceState: true });
+		}
+	});
+
+	async function handleSubmit(e: Event) {
+		e.preventDefault();
+		error = null;
+		isLoading = true;
+
+		try {
+			await authStore.login(email, password);
+			goto("/", { replaceState: true });
+		} catch {
+			error = "Email ou senha inválidos.";
+		} finally {
+			isLoading = false;
+		}
+	}
+</script>
+
+<svelte:head>
+	<title>Login — Health Self Tracker</title>
+</svelte:head>
+
+<div class="flex min-h-[80vh] items-center justify-center">
+	<form
+		onsubmit={handleSubmit}
+		class="w-full max-w-sm space-y-6 rounded-xl border border-border bg-card p-8 shadow-lg"
+	>
+		<div class="text-center">
+			<h1 class="text-xl font-semibold tracking-tight text-foreground">Health Self Tracker</h1>
+			<p class="mt-1 text-xs text-muted-foreground">Faça login para acessar seus registros</p>
+		</div>
+
+		{#if error}
+			<div
+				class="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-sm text-destructive"
+			>
+				{error}
+			</div>
+		{/if}
+
+		<div class="space-y-4">
+			<div>
+				<label for="login-email" class="mb-1.5 block text-xs font-medium text-muted-foreground"
+					>Email</label
+				>
+				<input
+					id="login-email"
+					type="email"
+					bind:value={email}
+					required
+					autocomplete="email"
+					placeholder="seu@email.com"
+					class="w-full rounded-lg border border-input bg-transparent px-3 py-2 font-mono text-sm text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring transition-colors"
+				/>
+			</div>
+
+			<div>
+				<label for="login-password" class="mb-1.5 block text-xs font-medium text-muted-foreground"
+					>Senha</label
+				>
+				<input
+					id="login-password"
+					type="password"
+					bind:value={password}
+					required
+					autocomplete="current-password"
+					placeholder="••••••••"
+					class="w-full rounded-lg border border-input bg-transparent px-3 py-2 font-mono text-sm text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring transition-colors"
+				/>
+			</div>
+		</div>
+
+		<button
+			type="submit"
+			disabled={isLoading}
+			class="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+		>
+			<LogIn class="size-4" />
+			{isLoading ? "Entrando..." : "Entrar"}
+		</button>
+	</form>
+</div>

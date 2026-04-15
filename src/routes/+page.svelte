@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { onMount } from "svelte";
-	import { ChevronLeft, ChevronRight, Calendar, Send, Download } from "@lucide/svelte";
+	import { onMount, untrack } from "svelte";
+	import { ChevronLeft, ChevronRight, Calendar, Send, Download, Loader2 } from "@lucide/svelte";
 	import { DailyLogStore, TAG_CATEGORIES } from "$lib/stores/dailyLog.svelte";
 	import CreatableAutocomplete from "$lib/components/CreatableAutocomplete.svelte";
 	import MetricSelector from "$lib/components/MetricSelector.svelte";
@@ -9,8 +9,21 @@
 	import { Separator } from "$lib/components/ui/separator/index.js";
 
 	const log = new DailyLogStore();
+	let initialLoadDone = $state(false);
 
-	onMount(() => log.loadInitialData());
+	onMount(async () => {
+		await log.loadInitialData();
+		initialLoadDone = true;
+	});
+
+	// When the user navigates to a different date, fetch the record for that date
+	$effect(() => {
+		const dateISO = log.dateISO; // subscribe to reactive date
+		if (!initialLoadDone) return;
+		untrack(() => {
+			log.loadRecordForDate(dateISO);
+		});
+	});
 </script>
 
 <svelte:head>
@@ -20,8 +33,14 @@
 <form
 	data-daily-form
 	onsubmit={(e) => { e.preventDefault(); log.submit(); }}
-	class="space-y-6"
+	class="relative space-y-6"
 >
+
+	{#if log.isLoading}
+		<div class="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-background/80 backdrop-blur-sm">
+			<Loader2 class="size-6 animate-spin text-muted-foreground" />
+		</div>
+	{/if}
 
 	<!-- ─── HEADER ─────────────────────────────────────────────────── -->
 	<header class="flex items-center justify-between">

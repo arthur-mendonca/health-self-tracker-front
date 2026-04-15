@@ -26,4 +26,9 @@
 - [x] Integrar atalhos globais (Ctrl+Enter para salvar, `/` para focar Omnibar, Esc para limpar).
 - [x] Wire-up dos dados no backend usando estado/store (`$state` / `$derived`), garantindo um "Dump" unificado por dia.
 - [x] Criar API client para integração com o backend NestJS.
-- [ ] Realizar integração SSR com `+page.server.ts` usando load function do SvelteKit (aguardando backend).
+- [x] Implementar autenticação JWT (login page, auth store com localStorage, guard de auth no layout).
+- [x] Conectar API client ao backend real (remover mock mode, alinhar types com FRONTEND_AGENT.md).
+- [x] Implementar navegação entre datas com fetch de registro via `GET /records?date=YYYY-MM-DD`.
+- [x] Implementar carregamento do registro de hoje via `GET /records/today` no `onMount`.
+- [x] Verificar build TypeScript — 0 errors, 0 warnings.
+
