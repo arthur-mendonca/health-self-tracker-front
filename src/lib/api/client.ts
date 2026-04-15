@@ -150,6 +150,12 @@ export const api = {
 		request<T>(endpoint, { method: "GET", params }),
 	post: <T>(endpoint: string, body: unknown, opts?: Partial<FetchOptions>) =>
 		request<T>(endpoint, { method: "POST", body: JSON.stringify(body), ...opts }),
+	patch: <T>(endpoint: string, body: unknown, opts?: Partial<FetchOptions>) =>
+		request<T>(endpoint, { method: "PATCH", body: JSON.stringify(body), ...opts }),
+	put: <T>(endpoint: string, body: unknown, opts?: Partial<FetchOptions>) =>
+		request<T>(endpoint, { method: "PUT", body: JSON.stringify(body), ...opts }),
+	delete: <T>(endpoint: string, opts?: Partial<FetchOptions>) =>
+		request<T>(endpoint, { method: "DELETE", ...opts }),
 };
 
 // ─── Auth ────────────────────────────────────────────────────────────────
@@ -166,6 +172,15 @@ export async function login(email: string, password: string): Promise<string> {
 export async function fetchTags(): Promise<TagResponse[]> {
 	return api.get<TagResponse[]>("/tags");
 }
+export async function createTag(payload: { name: string; category?: TagCategory }): Promise<TagResponse> {
+	return api.post<TagResponse>("/tags", payload);
+}
+export async function updateTag(id: string, payload: { name?: string; category?: TagCategory }): Promise<TagResponse> {
+	return api.patch<TagResponse>(`/tags/${id}`, payload);
+}
+export async function deleteTag(id: string): Promise<void> {
+	return api.delete<void>(`/tags/${id}`);
+}
 
 // ─── Substances ──────────────────────────────────────────────────────────
 
@@ -173,12 +188,30 @@ export async function fetchTags(): Promise<TagResponse[]> {
 export async function fetchSubstances(): Promise<SubstanceResponse[]> {
 	return api.get<SubstanceResponse[]>("/substances");
 }
+export async function createSubstance(payload: { name: string; type: SubstanceType; defaultDose?: string | null }): Promise<SubstanceResponse> {
+	return api.post<SubstanceResponse>("/substances", payload);
+}
+export async function updateSubstance(id: string, payload: { name?: string; type?: SubstanceType; defaultDose?: string | null }): Promise<SubstanceResponse> {
+	return api.patch<SubstanceResponse>(`/substances/${id}`, payload);
+}
+export async function deleteSubstance(id: string): Promise<void> {
+	return api.delete<void>(`/substances/${id}`);
+}
 
 // ─── Activities ──────────────────────────────────────────────────────────
 
 /** List all activities (sorted by name asc) */
 export async function fetchActivities(): Promise<ActivityResponse[]> {
 	return api.get<ActivityResponse[]>("/activities");
+}
+export async function createActivity(payload: { name: string }): Promise<ActivityResponse> {
+	return api.post<ActivityResponse>("/activities", payload);
+}
+export async function updateActivity(id: string, payload: { name?: string }): Promise<ActivityResponse> {
+	return api.patch<ActivityResponse>(`/activities/${id}`, payload);
+}
+export async function deleteActivity(id: string): Promise<void> {
+	return api.delete<void>(`/activities/${id}`);
 }
 
 // ─── Records ─────────────────────────────────────────────────────────────

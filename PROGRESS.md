@@ -30,5 +30,6 @@
 - [x] Conectar API client ao backend real (remover mock mode, alinhar types com FRONTEND_AGENT.md).
 - [x] Implementar navegação entre datas com fetch de registro via `GET /records?date=YYYY-MM-DD`.
 - [x] Implementar carregamento do registro de hoje via `GET /records/today` no `onMount`.
+- [x] Implementar página e rotas de gerenciamento de entidades (Gerenciamento de Tags, Atividades e Substâncias usando métodos POST, PATCH e DELETE).
 - [x] Verificar build TypeScript — 0 errors, 0 warnings.
 

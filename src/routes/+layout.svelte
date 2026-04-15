@@ -4,7 +4,7 @@
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { authStore } from '$lib/stores/auth.svelte';
-	import { LogOut } from '@lucide/svelte';
+	import { LogOut, Settings, ArrowLeft } from '@lucide/svelte';
 
 	let { children } = $props();
 
@@ -59,15 +59,35 @@
 	<meta name="description" content="Registro diário pessoal de saúde — Fricção Zero" />
 </svelte:head>
 
-<div class="dark min-h-screen bg-background text-foreground">
-	<div class="mx-auto max-w-3xl px-4 py-6">
-		{#if authStore.isAuthenticated && page.url.pathname !== '/login'}
-			<div class="mb-4 flex items-center justify-end">
-				<button
-					onclick={handleLogout}
-					class="flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
-					aria-label="Sair"
-				>
+	<div class="dark min-h-screen bg-background text-foreground">
+		<div class="mx-auto max-w-3xl px-4 py-6">
+			{#if authStore.isAuthenticated && page.url.pathname !== '/login'}
+				<div class="mb-4 flex items-center justify-end gap-2">
+					{#if page.url.pathname === '/manage'}
+						<button
+							onclick={() => goto('/', { replaceState: true })}
+							class="flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
+							aria-label="Voltar para Início"
+						>
+							<ArrowLeft class="size-3" />
+							Voltar
+						</button>
+					{:else}
+						<button
+							onclick={() => goto('/manage')}
+							class="flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
+							aria-label="Configurações"
+						>
+							<Settings class="size-3" />
+							Configurações
+						</button>
+					{/if}
+					
+					<button
+						onclick={handleLogout}
+						class="flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
+						aria-label="Sair"
+					>
 					<LogOut class="size-3" />
 					Sair
 				</button>

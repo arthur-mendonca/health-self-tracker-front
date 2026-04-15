@@ -84,8 +84,10 @@ Formato exato do erro segue o padrão do NestJS, mas o front pode tratar por sta
 
 - `400`: payload inválido, enum inválido, campo obrigatório ausente/vazio, data inválida, campos extras.
 - `401`: login inválido ou rota protegida sem token válido.
+- `404`: recurso não encontrado em rotas por `id`.
 - `201`: criação/upsert via `POST` bem-sucedido.
 - `200`: consulta bem-sucedida.
+- `204`: remoção bem-sucedida.
 
 Regras importantes:
 
@@ -149,6 +151,53 @@ Resposta `201`:
 
 Comportamento: se já existir uma tag com o mesmo `name`, a API reaproveita o registro e atualiza a `category`.
 
+### Atualizar tag por id
+
+`PATCH /tags/:id`
+
+Body:
+
+```json
+{
+  "name": "Migraine",
+  "category": "TRIGGER"
+}
+```
+
+Campos:
+
+- `name`: opcional.
+- `category`: opcional.
+- Pelo menos um campo deve ser enviado.
+
+Resposta `200`:
+
+```json
+{
+  "id": "01HV...",
+  "name": "Migraine",
+  "category": "TRIGGER",
+  "createdAt": "2026-04-15T01:20:30.000Z"
+}
+```
+
+Erros:
+
+- `400`: body vazio, `name` vazio, enum inválido ou campo extra.
+- `404`: tag não encontrada.
+
+### Remover tag por id
+
+`DELETE /tags/:id`
+
+Resposta `204`: sem body.
+
+Erros:
+
+- `404`: tag não encontrada.
+
+Observação: remover uma tag também remove a associação dela com registros diários existentes, mas não remove os registros diários.
+
 ## Substances
 
 Substances representam medicamentos e suplementos.
@@ -205,6 +254,55 @@ Resposta `201`:
 
 Comportamento: se já existir uma substance com o mesmo `name`, a API reaproveita o registro e atualiza `type` e `defaultDose`.
 
+### Atualizar substance por id
+
+`PATCH /substances/:id`
+
+Body:
+
+```json
+{
+  "name": "Ibuprofen",
+  "type": "MEDICATION",
+  "defaultDose": "400mg"
+}
+```
+
+Campos:
+
+- `name`: opcional.
+- `type`: opcional, `MEDICATION` ou `SUPPLEMENT`.
+- `defaultDose`: opcional, string ou `null`.
+- Pelo menos um campo deve ser enviado.
+
+Resposta `200`:
+
+```json
+{
+  "id": "01HV...",
+  "name": "Ibuprofen",
+  "type": "MEDICATION",
+  "defaultDose": "400mg"
+}
+```
+
+Erros:
+
+- `400`: body vazio, `name` vazio, enum inválido ou campo extra.
+- `404`: substance não encontrada.
+
+### Remover substance por id
+
+`DELETE /substances/:id`
+
+Resposta `204`: sem body.
+
+Erros:
+
+- `404`: substance não encontrada.
+
+Observação: remover uma substance também remove os logs dela em registros diários existentes, mas não remove os registros diários.
+
 ## Activities
 
 Activities representam atividades físicas ou hábitos registrados no dia.
@@ -248,6 +346,48 @@ Resposta `201`:
 ```
 
 Comportamento: se já existir uma activity com o mesmo `name`, a API reaproveita o registro existente.
+
+### Atualizar activity por id
+
+`PATCH /activities/:id`
+
+Body:
+
+```json
+{
+  "name": "Run"
+}
+```
+
+Campos:
+
+- `name`: obrigatório no update.
+
+Resposta `200`:
+
+```json
+{
+  "id": "01HV...",
+  "name": "Run"
+}
+```
+
+Erros:
+
+- `400`: body vazio, `name` vazio ou campo extra.
+- `404`: activity não encontrada.
+
+### Remover activity por id
+
+`DELETE /activities/:id`
+
+Resposta `204`: sem body.
+
+Erros:
+
+- `404`: activity não encontrada.
+
+Observação: remover uma activity também remove os logs dela em registros diários existentes, mas não remove os registros diários.
 
 ## Daily Records
 
@@ -580,6 +720,21 @@ export type ActivityResponse = {
   name: string;
 };
 
+export type UpdateTagPayload = {
+  name?: string;
+  category?: TagCategory;
+};
+
+export type UpdateSubstancePayload = {
+  name?: string;
+  type?: SubstanceType;
+  defaultDose?: string | null;
+};
+
+export type UpdateActivityPayload = {
+  name?: string;
+};
+
 export type DailyRecordResponse = {
   id: string;
   date: string;
@@ -633,7 +788,7 @@ export type UpsertDailyRecordPayload = {
 
 ## Limitações Atuais da API
 
-- Não há endpoints de edição parcial, delete, paginação ou filtros além de data/período.
+- Não há paginação ou filtros além de data/período nos registros.
 - Não há refresh token.
 - Não há endpoint de cadastro de usuário; credenciais vêm do ambiente do backend.
 - Não há contrato OpenAPI gerado automaticamente no estado atual.
