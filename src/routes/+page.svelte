@@ -186,6 +186,17 @@
 				></textarea>
 			</div>
 			<div>
+				<label for="notes-structured" class="mb-1 block text-xs text-muted-foreground">Dados Estruturados (YAML/Term)</label>
+				<textarea
+					id="notes-structured"
+					bind:value={log.structuredYaml}
+					placeholder="humor: bom&#10;hidratacao.volume: 5L"
+					rows={3}
+					class="w-full resize-none rounded-lg border border-input bg-transparent px-3 py-2 font-mono text-sm text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring transition-colors"
+				></textarea>
+				<p class="mt-1 text-[10px] text-muted-foreground">Formate como <kbd class="rounded border border-border px-1 py-0.5 font-mono text-[9px]">chave.subchave: valor</kbd>. Será convertido em JSON puro.</p>
+			</div>
+			<div>
 				<label for="notes-distractions" class="mb-1 block text-xs text-muted-foreground">Distrações / Interferências</label>
 				<textarea
 					id="notes-distractions"
