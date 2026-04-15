@@ -234,25 +234,45 @@ export async function submitDailyRecord(payload: DailyRecordPayload): Promise<Da
 
 // ─── Export ──────────────────────────────────────────────────────────────
 
-/** Export full data dump as JSON */
-export async function exportDumpJSON(): Promise<{ generatedAt: string; records: DailyRecordResponse[] }> {
-	return api.get<{ generatedAt: string; records: DailyRecordResponse[] }>("/export/dump");
+export interface ExportDumpParams {
+	startDate?: string;
+	endDate?: string;
+	days?: number;
 }
 
-/** Export full data dump as CSV (triggers download) */
-export async function exportDumpCSV(): Promise<void> {
+export type ExportFormat = 'json' | 'csv' | 'txt' | 'pdf';
+
+/** Export data dump in the specified format (triggers download) */
+export async function exportDataDump(format: ExportFormat, params: ExportDumpParams = {}): Promise<void> {
 	const token = getToken();
 	const headers: Record<string, string> = {};
 	if (token) headers["Authorization"] = `Bearer ${token}`;
 
-	const response = await fetch(`${BASE_URL}/export/dump.csv`, { headers });
-	if (!response.ok) throw new Error(`Export CSV failed: ${response.status}`);
+	const searchParams = new URLSearchParams();
+	if (params.startDate) searchParams.set("startDate", params.startDate);
+	if (params.endDate) searchParams.set("endDate", params.endDate);
+	if (params.days !== undefined) searchParams.set("days", params.days.toString());
+
+	const query = searchParams.toString();
+	const url = `${BASE_URL}/export/dump.${format}${query ? `?${query}` : ''}`;
+
+	const response = await fetch(url, { headers });
+	if (!response.ok) throw new Error(`Export ${format.toUpperCase()} failed: ${response.status}`);
 
 	const blob = await response.blob();
-	const url = URL.createObjectURL(blob);
+	const downloadUrl = URL.createObjectURL(blob);
 	const a = document.createElement("a");
-	a.href = url;
-	a.download = "health-self-tracker-dump.csv";
+	a.href = downloadUrl;
+	
+	// Tenta extrair o filename do header content-disposition se existir
+	let filename = `health-self-tracker-dump.${format}`;
+	const contentDisposition = response.headers.get('content-disposition');
+	if (contentDisposition && contentDisposition.includes('filename=')) {
+		const match = contentDisposition.match(/filename="?([^"]+)"?/);
+		if (match && match[1]) filename = match[1];
+	}
+
+	a.download = filename;
 	a.click();
-	URL.revokeObjectURL(url);
+	URL.revokeObjectURL(downloadUrl);
 }

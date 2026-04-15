@@ -5,7 +5,6 @@ import {
   fetchTodayRecord,
   fetchRecordByDate,
   submitDailyRecord,
-  exportDumpJSON,
 } from "$lib/api/client";
 import type {
   TagCategory,
@@ -423,21 +422,4 @@ export class DailyLogStore {
     }
   }
 
-  // ─── Export dump ─────────────────────────────────────────────────────
-  async downloadDump(dateISO: string) {
-    try {
-      const data = await exportDumpJSON();
-      const blob = new Blob([JSON.stringify(data, null, 2)], {
-        type: "application/json",
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `health-dump-${dateISO}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      /* silently fail */
-    }
-  }
 }

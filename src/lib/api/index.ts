@@ -16,8 +16,7 @@ export {
 	fetchTodayRecord,
 	fetchRecordByDate,
 	submitDailyRecord,
-	exportDumpJSON,
-	exportDumpCSV,
+	exportDataDump,
 } from "./client";
 
 export type {

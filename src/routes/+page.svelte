@@ -5,6 +5,7 @@
 	import CreatableAutocomplete from "$lib/components/CreatableAutocomplete.svelte";
 	import MetricSelector from "$lib/components/MetricSelector.svelte";
 	import SubstanceEntry from "$lib/components/SubstanceEntry.svelte";
+	import ExportDialog from "$lib/components/ExportDialog.svelte";
 	import { Button } from "$lib/components/ui/button/index.js";
 	import { Separator } from "$lib/components/ui/separator/index.js";
 
@@ -226,10 +227,7 @@
 			{/if}
 		</div>
 		<div class="flex items-center gap-2">
-			<Button variant="ghost" size="sm" type="button" onclick={() => log.downloadDump(log.dateISO)}>
-				<Download class="size-3.5" />
-				Dump
-			</Button>
+			<ExportDialog disabled={log.isSubmitting} />
 			<Button type="submit" disabled={log.isSubmitting} size="sm">
 				<Send class="size-3.5" />
 				{log.isSubmitting ? "Salvando..." : "Salvar Log"}

@@ -625,11 +625,41 @@ Sugestão de UX:
 
 `GET /export/dump`
 
+Também disponível como download explícito:
+
+`GET /export/dump.json`
+
+Query params opcionais em todas as rotas de export:
+
+- `startDate`: início do período em `YYYY-MM-DD`.
+- `endDate`: fim do período em `YYYY-MM-DD`.
+- `days`: atalho para os últimos N dias, incluindo hoje em `America/Sao_Paulo`.
+
+Regras:
+
+- Sem query params, exporta todos os registros.
+- `startDate` e `endDate` podem ser usados juntos ou isolados.
+- `days` não pode ser combinado com `startDate` ou `endDate`.
+- `startDate` não pode ser maior que `endDate`.
+
+Exemplos:
+
+```http
+GET /export/dump?startDate=2026-04-01&endDate=2026-04-30
+GET /export/dump.json?days=7
+GET /export/dump.pdf?days=7
+GET /export/dump.txt?startDate=2026-04-01&endDate=2026-04-30
+```
+
 Resposta `200`:
 
 ```json
 {
   "generatedAt": "2026-04-15T01:20:30.000Z",
+  "period": {
+    "startDate": "2026-04-01",
+    "endDate": "2026-04-30"
+  },
   "records": [
     {
       "id": "01HV...",
@@ -672,6 +702,11 @@ Resposta `200`:
 
 Ordenação atual dos registros exportados: `date` ascendente.
 
+`GET /export/dump.json` retorna o mesmo JSON, mas com headers de download:
+
+- Header `content-type`: `application/json; charset=utf-8`
+- Header `content-disposition`: `attachment; filename="health-self-tracker-dump.json"`
+
 ### Export CSV
 
 `GET /export/dump.csv`
@@ -688,6 +723,32 @@ Colunas:
 ```
 
 As colunas complexas são serializadas como JSON dentro da célula CSV.
+
+### Export TXT
+
+`GET /export/dump.txt`
+
+Resposta `200`:
+
+- Header `content-type`: `text/plain; charset=utf-8`
+- Header `content-disposition`: `attachment; filename="health-self-tracker-dump.txt"`
+
+O corpo é texto simples com cabeçalho, período exportado, quantidade de registros e uma seção por dia.
+
+### Export PDF
+
+`GET /export/dump.pdf`
+
+Resposta `200`:
+
+- Header `content-type`: `application/pdf`
+- Header `content-disposition`: `attachment; filename="health-self-tracker-dump.pdf"`
+
+O PDF é textual e usa os mesmos dados do TXT. Para exportar os últimos 7 dias:
+
+```http
+GET /export/dump.pdf?days=7
+```
 
 ## Modelo TypeScript Sugerido para o Front
 
