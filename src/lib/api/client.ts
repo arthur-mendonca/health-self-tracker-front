@@ -67,11 +67,13 @@ export interface DailyRecordPayload {
 	activities?: Array<{ name: string; notes?: string | null }>;
 }
 
+import { env } from '$env/dynamic/public';
+
 // ─── Config ──────────────────────────────────────────────────────────────
 
 const BASE_URL = (() => {
 	try {
-		return (import.meta as unknown as { env: Record<string, string> }).env.VITE_API_URL || "http://localhost:3000";
+		return env.PUBLIC_API_URL || "http://localhost:3000";
 	} catch {
 		return "http://localhost:3000";
 	}
