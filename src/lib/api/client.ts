@@ -83,19 +83,19 @@ const BASE_URL = (() => {
 // The auth store is the source of truth, but to avoid circular imports the
 // HTTP layer reads/writes the token directly from localStorage.
 
-const TOKEN_KEY = "health-tracker-token";
+const AUTH_STATUS_KEY = "health-tracker-auth-status";
 
-function getToken(): string | null {
+function getAuthStatus(): boolean {
 	try {
-		return localStorage.getItem(TOKEN_KEY);
+		return localStorage.getItem(AUTH_STATUS_KEY) === "true";
 	} catch {
-		return null;
+		return false;
 	}
 }
 
-function clearToken(): void {
+function clearAuthStatus(): void {
 	try {
-		localStorage.removeItem(TOKEN_KEY);
+		localStorage.removeItem(AUTH_STATUS_KEY);
 	} catch { /* SSR-safe */ }
 }
 
@@ -119,20 +119,17 @@ async function request<T>(endpoint: string, options: FetchOptions = {}): Promise
 		...(fetchOptions.headers as Record<string, string>),
 	};
 
-	if (!skipAuth) {
-		const token = getToken();
-		if (token) {
-			headers["Authorization"] = `Bearer ${token}`;
-		}
-	}
+	const response = await fetch(url, { 
+		...fetchOptions, 
+		headers,
+		credentials: "include" 
+	});
 
-	const response = await fetch(url, { ...fetchOptions, headers });
-
-	// Handle 401 — clear token so the UI redirects to login
+	// Handle 401 — clear auth status so the UI redirects to login
 	if (response.status === 401) {
-		clearToken();
+		clearAuthStatus();
 		// Dispatch a storage event so the auth store reacts immediately
-		window.dispatchEvent(new StorageEvent("storage", { key: TOKEN_KEY }));
+		window.dispatchEvent(new StorageEvent("storage", { key: AUTH_STATUS_KEY }));
 		throw new Error("Unauthorized");
 	}
 
@@ -162,10 +159,21 @@ export const api = {
 
 // ─── Auth ────────────────────────────────────────────────────────────────
 
-/** Login and return the JWT token */
-export async function login(email: string, password: string): Promise<string> {
-	const res = await api.post<{ token: string }>("/auth/login", { email, password }, { skipAuth: true });
-	return res.token;
+/** Login and session */
+export async function login(email: string, password: string): Promise<void> {
+	await api.post("/auth/login", { email, password }, { skipAuth: true });
+}
+
+export async function logout(): Promise<void> {
+	await api.post("/auth/logout", {}, { skipAuth: true });
+}
+
+export async function fetchMe(): Promise<{ id: string; email: string } | null> {
+	try {
+		return await api.get<{ id: string; email: string }>("/auth/me");
+	} catch {
+		return null;
+	}
 }
 
 // ─── Tags ────────────────────────────────────────────────────────────────
@@ -246,9 +254,7 @@ export type ExportFormat = 'json' | 'csv' | 'txt' | 'pdf';
 
 /** Export data dump in the specified format (triggers download) */
 export async function exportDataDump(format: ExportFormat, params: ExportDumpParams = {}): Promise<void> {
-	const token = getToken();
 	const headers: Record<string, string> = {};
-	if (token) headers["Authorization"] = `Bearer ${token}`;
 
 	const searchParams = new URLSearchParams();
 	if (params.startDate) searchParams.set("startDate", params.startDate);
@@ -258,7 +264,7 @@ export async function exportDataDump(format: ExportFormat, params: ExportDumpPar
 	const query = searchParams.toString();
 	const url = `${BASE_URL}/export/dump.${format}${query ? `?${query}` : ''}`;
 
-	const response = await fetch(url, { headers });
+	const response = await fetch(url, { headers, credentials: "include" });
 	if (!response.ok) throw new Error(`Export ${format.toUpperCase()} failed: ${response.status}`);
 
 	const blob = await response.blob();

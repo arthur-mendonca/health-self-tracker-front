@@ -5,10 +5,11 @@ Este backend expõe uma API HTTP JSON para o Health Self Tracker. O front-end fi
 ## Base da API
 
 - Local: `http://localhost:3000`
-- O backend habilita CORS globalmente.
-- Todas as rotas de negócio exigem JWT no header `Authorization`.
-- A única rota pública é `POST /auth/login`.
+- O backend habilita CORS para origens configuradas em `CORS_ORIGINS`.
+- Todas as rotas de negócio exigem JWT no header `Authorization` ou cookie de sessão `HttpOnly`.
+- As rotas públicas são `POST /auth/login` e `POST /auth/logout`.
 - Envie payloads JSON com `Content-Type: application/json`.
+- Para autenticação por cookie no navegador, use `credentials: "include"` em todas as requests para a API.
 - Campos extras no body são rejeitados pela validação global.
 
 ## Autenticação
@@ -18,8 +19,24 @@ O usuário inicial é criado no boot da API a partir das variáveis:
 - `AUTH_USER_EMAIL`
 - `AUTH_USER_PASSWORD`
 - `JWT_SECRET`
+- `CORS_ORIGINS`
+- `AUTH_COOKIE_NAME`
+- `AUTH_COOKIE_DOMAIN`
+- `AUTH_COOKIE_SECURE`
+- `AUTH_COOKIE_SAME_SITE`
+- `AUTH_COOKIE_MAX_AGE_SECONDS`
 
 Se `AUTH_USER_EMAIL` ou `AUTH_USER_PASSWORD` não estiverem configurados, o login fica desabilitado.
+
+Em produção, com API em `https://health.gestorinvest.xyz` e front em `https://health-front.gestorinvest.xyz`, use:
+
+```text
+CORS_ORIGINS=https://health-front.gestorinvest.xyz
+AUTH_COOKIE_DOMAIN=.gestorinvest.xyz
+AUTH_COOKIE_SECURE=true
+AUTH_COOKIE_SAME_SITE=none
+AUTH_COOKIE_MAX_AGE_SECONDS=3600
+```
 
 ### Login
 
@@ -42,13 +59,72 @@ Resposta `201`:
 }
 ```
 
-Use o token nas demais rotas:
+Além do body acima, a API envia `Set-Cookie` com o cookie `HttpOnly` de sessão. Para o front em SSR, prefira autenticar via cookie e não armazenar o JWT no browser.
+
+Use `credentials: "include"` no login:
+
+```ts
+await fetch(`${apiUrl}/auth/login`, {
+  method: "POST",
+  credentials: "include",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ email, password }),
+});
+```
+
+Para clientes não-browser, como Postman, scripts e testes, o token continua aceito nas demais rotas:
 
 ```http
 Authorization: Bearer jwt-token
 ```
 
-O token atual expira em 1 hora. Em caso de token ausente, inválido ou expirado, a API retorna `401`.
+O token/cookie atual expira em 1 hora. Em caso de token/cookie ausente, inválido ou expirado, a API retorna `401`.
+
+### Sessão atual
+
+`GET /auth/me`
+
+Autenticação: cookie `HttpOnly` ou `Authorization: Bearer`.
+
+Resposta `200`:
+
+```json
+{
+  "id": "01HV...",
+  "email": "user@example.com"
+}
+```
+
+Use este endpoint no server-side do front antes de renderizar páginas protegidas. Em SSR, encaminhe o cookie recebido pelo front para a API:
+
+```ts
+await fetch("https://health.gestorinvest.xyz/auth/me", {
+  headers: {
+    cookie: request.headers.get("cookie") ?? "",
+  },
+});
+```
+
+### Logout
+
+`POST /auth/logout`
+
+Resposta `204`: sem body. A API limpa o cookie de sessão.
+
+No browser:
+
+```ts
+await fetch(`${apiUrl}/auth/logout`, {
+  method: "POST",
+  credentials: "include",
+});
+```
+
+### CSRF para cookie
+
+Requests autenticadas por cookie nos métodos `POST`, `PUT`, `PATCH` e `DELETE` precisam ter header `Origin` permitido por `CORS_ORIGINS`. Requests com `Authorization: Bearer` não passam por essa checagem.
 
 ## Enums
 
