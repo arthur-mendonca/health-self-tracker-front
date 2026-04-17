@@ -148,7 +148,6 @@ async function request<T>(endpoint: string, options: FetchOptions = {}): Promise
 	}
 
 	const headers: Record<string, string> = {
-		"Cache-Control": "no-store",
 		"Content-Type": "application/json",
 		...(fetchOptions.headers as Record<string, string>),
 	};
@@ -291,7 +290,7 @@ export type ExportFormat = 'json' | 'csv' | 'txt' | 'pdf';
 
 /** Export data dump in the specified format (triggers download) */
 export async function exportDataDump(format: ExportFormat, params: ExportDumpParams = {}): Promise<void> {
-	const headers: Record<string, string> = { "Cache-Control": "no-store" };
+	const headers: Record<string, string> = {};
 
 	const searchParams = new URLSearchParams();
 	if (params.startDate) searchParams.set("startDate", params.startDate);
