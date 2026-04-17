@@ -39,7 +39,7 @@ export class ManageStore {
 		try {
 			this.tags = await fetchTags();
 		} catch (err) {
-			this.error = "Erro ao carregar tags.";
+			this.error = formatStoreError("Erro ao carregar tags", err);
 			console.error(err);
 		} finally {
 			this.isTagsLoading = false;
@@ -54,7 +54,7 @@ export class ManageStore {
 			await this.loadTags();
 			return tag;
 		} catch (err) {
-			this.error = "Erro ao criar tag.";
+			this.error = formatStoreError("Erro ao criar tag", err);
 			console.error(err);
 			throw err;
 		}
@@ -66,7 +66,7 @@ export class ManageStore {
 			await updateTag(id, payload);
 			await this.loadTags();
 		} catch (err) {
-			this.error = "Erro ao atualizar tag.";
+			this.error = formatStoreError("Erro ao atualizar tag", err);
 			console.error(err);
 			throw err;
 		}
@@ -78,7 +78,7 @@ export class ManageStore {
 			await deleteTag(id);
 			this.tags = this.tags.filter((t) => t.id !== id);
 		} catch (err) {
-			this.error = "Erro ao remover tag.";
+			this.error = formatStoreError("Erro ao remover tag", err);
 			console.error(err);
 			throw err;
 		}
@@ -94,7 +94,7 @@ export class ManageStore {
 		try {
 			this.substances = await fetchSubstances();
 		} catch (err) {
-			this.error = "Erro ao carregar substâncias.";
+			this.error = formatStoreError("Erro ao carregar substâncias", err);
 			console.error(err);
 		} finally {
 			this.isSubstancesLoading = false;
@@ -108,7 +108,7 @@ export class ManageStore {
 			await this.loadSubstances();
 			return substance;
 		} catch (err) {
-			this.error = "Erro ao criar substância.";
+			this.error = formatStoreError("Erro ao criar substância", err);
 			console.error(err);
 			throw err;
 		}
@@ -120,7 +120,7 @@ export class ManageStore {
 			await updateSubstance(id, payload);
 			await this.loadSubstances();
 		} catch (err) {
-			this.error = "Erro ao atualizar substância.";
+			this.error = formatStoreError("Erro ao atualizar substância", err);
 			console.error(err);
 			throw err;
 		}
@@ -132,7 +132,7 @@ export class ManageStore {
 			await deleteSubstance(id);
 			this.substances = this.substances.filter((s) => s.id !== id);
 		} catch (err) {
-			this.error = "Erro ao remover substância.";
+			this.error = formatStoreError("Erro ao remover substância", err);
 			console.error(err);
 			throw err;
 		}
@@ -144,7 +144,7 @@ export class ManageStore {
 		try {
 			this.activities = await fetchActivities();
 		} catch (err) {
-			this.error = "Erro ao carregar atividades.";
+			this.error = formatStoreError("Erro ao carregar atividades", err);
 			console.error(err);
 		} finally {
 			this.isActivitiesLoading = false;
@@ -158,7 +158,7 @@ export class ManageStore {
 			await this.loadActivities();
 			return activity;
 		} catch (err) {
-			this.error = "Erro ao criar atividade.";
+			this.error = formatStoreError("Erro ao criar atividade", err);
 			console.error(err);
 			throw err;
 		}
@@ -170,7 +170,7 @@ export class ManageStore {
 			await updateActivity(id, payload);
 			await this.loadActivities();
 		} catch (err) {
-			this.error = "Erro ao atualizar atividade.";
+			this.error = formatStoreError("Erro ao atualizar atividade", err);
 			console.error(err);
 			throw err;
 		}
@@ -182,7 +182,7 @@ export class ManageStore {
 			await deleteActivity(id);
 			this.activities = this.activities.filter((a) => a.id !== id);
 		} catch (err) {
-			this.error = "Erro ao remover atividade.";
+			this.error = formatStoreError("Erro ao remover atividade", err);
 			console.error(err);
 			throw err;
 		}
@@ -191,6 +191,51 @@ export class ManageStore {
 	// ===== INIT =====
 	async loadAll() {
 		this.error = null;
-		await Promise.all([this.loadTags(), this.loadSubstances(), this.loadActivities()]);
+		this.isTagsLoading = true;
+		this.isSubstancesLoading = true;
+		this.isActivitiesLoading = true;
+
+		const [tags, substances, activities] = await Promise.allSettled([
+			fetchTags(),
+			fetchSubstances(),
+			fetchActivities(),
+		]);
+		const failures: string[] = [];
+
+		if (tags.status === "fulfilled") {
+			this.tags = tags.value;
+		} else {
+			failures.push(formatStoreError("tags", tags.reason));
+			console.error(tags.reason);
+		}
+
+		if (substances.status === "fulfilled") {
+			this.substances = substances.value;
+		} else {
+			failures.push(formatStoreError("substâncias", substances.reason));
+			console.error(substances.reason);
+		}
+
+		if (activities.status === "fulfilled") {
+			this.activities = activities.value;
+		} else {
+			failures.push(formatStoreError("atividades", activities.reason));
+			console.error(activities.reason);
+		}
+
+		this.isTagsLoading = false;
+		this.isSubstancesLoading = false;
+		this.isActivitiesLoading = false;
+		this.error = failures.length > 0
+			? `Alguns dados não foram carregados: ${failures.join(" | ")}`
+			: null;
 	}
+}
+
+function formatStoreError(prefix: string, error: unknown): string {
+	if (error instanceof Error) {
+		return `${prefix}: ${error.message}`;
+	}
+
+	return prefix;
 }

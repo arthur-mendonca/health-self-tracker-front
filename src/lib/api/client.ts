@@ -106,15 +106,49 @@ interface FetchOptions extends RequestInit {
 	skipAuth?: boolean;
 }
 
-async function request<T>(endpoint: string, options: FetchOptions = {}): Promise<T> {
-	const { params, skipAuth, ...fetchOptions } = options;
+type ApiErrorBody = {
+	error?: string;
+	message?: string | string[];
+	requestId?: string;
+	statusCode?: number;
+};
 
+export class ApiError extends Error {
+	readonly endpoint: string;
+	readonly requestId?: string;
+	readonly status: number;
+	readonly statusText: string;
+
+	constructor(args: {
+		endpoint: string;
+		message: string;
+		requestId?: string;
+		status: number;
+		statusText: string;
+	}) {
+		super(args.message);
+		this.name = "ApiError";
+		this.endpoint = args.endpoint;
+		this.requestId = args.requestId;
+		this.status = args.status;
+		this.statusText = args.statusText;
+	}
+}
+
+async function request<T>(endpoint: string, options: FetchOptions = {}): Promise<T> {
+	const { params, skipAuth: _skipAuth, ...fetchOptions } = options;
+	void _skipAuth;
+
+	let endpointWithQuery = endpoint;
 	let url = `${BASE_URL}${endpoint}`;
 	if (params) {
-		url += `?${new URLSearchParams(params).toString()}`;
+		const query = new URLSearchParams(params).toString();
+		endpointWithQuery += `?${query}`;
+		url += `?${query}`;
 	}
 
 	const headers: Record<string, string> = {
+		"Cache-Control": "no-store",
 		"Content-Type": "application/json",
 		...(fetchOptions.headers as Record<string, string>),
 	};
@@ -122,26 +156,29 @@ async function request<T>(endpoint: string, options: FetchOptions = {}): Promise
 	const response = await fetch(url, { 
 		...fetchOptions, 
 		headers,
+		cache: "no-store",
 		credentials: "include" 
 	});
+	const responseBody = await readResponseBody(response);
 
 	// Handle 401 — clear auth status so the UI redirects to login
 	if (response.status === 401) {
 		clearAuthStatus();
 		// Dispatch a storage event so the auth store reacts immediately
-		window.dispatchEvent(new StorageEvent("storage", { key: AUTH_STATUS_KEY }));
-		throw new Error("Unauthorized");
+		if (typeof window !== "undefined") {
+			window.dispatchEvent(new StorageEvent("storage", { key: AUTH_STATUS_KEY }));
+		}
+		throw createApiError(response, endpointWithQuery, responseBody);
 	}
 
 	if (!response.ok) {
-		throw new Error(`API Error: ${response.status} ${response.statusText}`);
+		throw createApiError(response, endpointWithQuery, responseBody);
 	}
 
 	// Some endpoints (e.g. GET /records/today with no record) return null as
 	// body — handle the case where there is no JSON payload.
-	const text = await response.text();
-	if (!text) return null as T;
-	return JSON.parse(text) as T;
+	if (!responseBody.text) return null as T;
+	return responseBody.json as T;
 }
 
 export const api = {
@@ -254,7 +291,7 @@ export type ExportFormat = 'json' | 'csv' | 'txt' | 'pdf';
 
 /** Export data dump in the specified format (triggers download) */
 export async function exportDataDump(format: ExportFormat, params: ExportDumpParams = {}): Promise<void> {
-	const headers: Record<string, string> = {};
+	const headers: Record<string, string> = { "Cache-Control": "no-store" };
 
 	const searchParams = new URLSearchParams();
 	if (params.startDate) searchParams.set("startDate", params.startDate);
@@ -262,10 +299,13 @@ export async function exportDataDump(format: ExportFormat, params: ExportDumpPar
 	if (params.days !== undefined) searchParams.set("days", params.days.toString());
 
 	const query = searchParams.toString();
-	const url = `${BASE_URL}/export/dump.${format}${query ? `?${query}` : ''}`;
+	const endpoint = `/export/dump.${format}${query ? `?${query}` : ''}`;
+	const url = `${BASE_URL}${endpoint}`;
 
-	const response = await fetch(url, { headers, credentials: "include" });
-	if (!response.ok) throw new Error(`Export ${format.toUpperCase()} failed: ${response.status}`);
+	const response = await fetch(url, { cache: "no-store", headers, credentials: "include" });
+	if (!response.ok) {
+		throw createApiError(response, endpoint, await readResponseBody(response));
+	}
 
 	const blob = await response.blob();
 	const downloadUrl = URL.createObjectURL(blob);
@@ -283,4 +323,50 @@ export async function exportDataDump(format: ExportFormat, params: ExportDumpPar
 	a.download = filename;
 	a.click();
 	URL.revokeObjectURL(downloadUrl);
+}
+
+async function readResponseBody(response: Response): Promise<{ json?: ApiErrorBody | unknown; text: string }> {
+	const text = await response.text();
+
+	if (!text) {
+		return { text };
+	}
+
+	try {
+		return { json: JSON.parse(text) as ApiErrorBody | unknown, text };
+	} catch {
+		return { text };
+	}
+}
+
+function createApiError(
+	response: Response,
+	endpoint: string,
+	body: { json?: ApiErrorBody | unknown; text: string },
+): ApiError {
+	const apiBody = isApiErrorBody(body.json) ? body.json : undefined;
+	const apiMessage = normalizeApiMessage(apiBody?.message) || body.text || response.statusText;
+	const requestId = apiBody?.requestId ?? response.headers.get("x-request-id") ?? undefined;
+	const suffix = requestId ? ` (requestId: ${requestId})` : "";
+	const message = `API ${response.status} ${response.statusText} em ${endpoint}: ${apiMessage}${suffix}`;
+
+	return new ApiError({
+		endpoint,
+		message,
+		requestId,
+		status: response.status,
+		statusText: response.statusText,
+	});
+}
+
+function normalizeApiMessage(message: string | string[] | undefined): string | null {
+	if (Array.isArray(message)) {
+		return message.join("; ");
+	}
+
+	return message?.trim() || null;
+}
+
+function isApiErrorBody(value: unknown): value is ApiErrorBody {
+	return typeof value === "object" && value !== null;
 }

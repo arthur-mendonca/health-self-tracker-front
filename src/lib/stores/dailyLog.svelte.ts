@@ -331,8 +331,12 @@ export class DailyLogStore {
       } else {
         this.resetForm();
       }
-    } catch {
-      this.resetForm();
+    } catch (error) {
+      console.error("Load record error:", error);
+      this.submitMessage = {
+        type: "error",
+        text: formatStoreError("Erro ao carregar o registro", error),
+      };
     } finally {
       this.isLoading = false;
     }
@@ -342,21 +346,47 @@ export class DailyLogStore {
   async loadInitialData() {
     this.isLoading = true;
     try {
-      const [tags, subs, acts, todayRecord] = await Promise.all([
+      const [tags, subs, acts, todayRecord] = await Promise.allSettled([
         fetchTags(),
         fetchSubstances(),
         fetchActivities(),
         fetchTodayRecord(),
       ]);
-      this.availableTags = tags as TagItem[];
-      this.availableSubstances = subs;
-      this.availableActivities = acts;
 
-      if (todayRecord) {
-        this.loadFromResponse(todayRecord);
+      const failures: string[] = [];
+
+      if (tags.status === "fulfilled") {
+        this.availableTags = tags.value as TagItem[];
+      } else {
+        failures.push(formatStoreError("tags", tags.reason));
       }
-    } catch {
-      // Backend unavailable — form stays empty
+
+      if (subs.status === "fulfilled") {
+        this.availableSubstances = subs.value;
+      } else {
+        failures.push(formatStoreError("substâncias", subs.reason));
+      }
+
+      if (acts.status === "fulfilled") {
+        this.availableActivities = acts.value;
+      } else {
+        failures.push(formatStoreError("atividades", acts.reason));
+      }
+
+      if (todayRecord.status === "fulfilled") {
+        if (todayRecord.value) {
+          this.loadFromResponse(todayRecord.value);
+        }
+      } else {
+        failures.push(formatStoreError("registro do dia", todayRecord.reason));
+      }
+
+      if (failures.length > 0) {
+        this.submitMessage = {
+          type: "error",
+          text: `Alguns dados não foram carregados: ${failures.join(" | ")}`,
+        };
+      }
     } finally {
       this.isLoading = false;
     }
@@ -412,7 +442,7 @@ export class DailyLogStore {
       console.error("Submit error:", err);
       this.submitMessage = {
         type: "error",
-        text: "Erro ao salvar. Verifique a conexão com a API.",
+        text: formatStoreError("Erro ao salvar", err),
       };
     } finally {
       this.isSubmitting = false;
@@ -422,4 +452,12 @@ export class DailyLogStore {
     }
   }
 
+}
+
+function formatStoreError(prefix: string, error: unknown): string {
+  if (error instanceof Error) {
+    return `${prefix}: ${error.message}`;
+  }
+
+  return prefix;
 }
