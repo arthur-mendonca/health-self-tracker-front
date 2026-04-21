@@ -1,34 +1,8 @@
 <script lang="ts">
-	import { goto } from "$app/navigation";
-	import { authStore } from "$lib/stores/auth.svelte";
+	import { LoginStore } from "$lib/stores/login.svelte";
 	import { LogIn } from "@lucide/svelte";
 
-	let email = $state("");
-	let password = $state("");
-	let error = $state<string | null>(null);
-	let isLoading = $state(false);
-
-	// If already authenticated, redirect immediately
-	$effect(() => {
-		if (authStore.isAuthenticated) {
-			goto("/", { replaceState: true });
-		}
-	});
-
-	async function handleSubmit(e: Event) {
-		e.preventDefault();
-		error = null;
-		isLoading = true;
-
-		try {
-			await authStore.login(email, password);
-			goto("/", { replaceState: true });
-		} catch {
-			error = "Email ou senha inválidos.";
-		} finally {
-			isLoading = false;
-		}
-	}
+	const store = new LoginStore();
 </script>
 
 <svelte:head>
@@ -37,7 +11,7 @@
 
 <div class="flex min-h-[80vh] items-center justify-center">
 	<form
-		onsubmit={handleSubmit}
+		onsubmit={store.handleSubmit}
 		class="w-full max-w-sm space-y-6 rounded-xl border border-border bg-card p-8 shadow-lg"
 	>
 		<div class="text-center">
@@ -45,11 +19,11 @@
 			<p class="mt-1 text-xs text-muted-foreground">Faça login para acessar seus registros</p>
 		</div>
 
-		{#if error}
+		{#if store.error}
 			<div
 				class="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-sm text-destructive"
 			>
-				{error}
+				{store.error}
 			</div>
 		{/if}
 
@@ -61,7 +35,7 @@
 				<input
 					id="login-email"
 					type="email"
-					bind:value={email}
+					bind:value={store.email}
 					required
 					autocomplete="email"
 					placeholder="seu@email.com"
@@ -76,7 +50,7 @@
 				<input
 					id="login-password"
 					type="password"
-					bind:value={password}
+					bind:value={store.password}
 					required
 					autocomplete="current-password"
 					placeholder="••••••••"
@@ -87,11 +61,11 @@
 
 		<button
 			type="submit"
-			disabled={isLoading}
+			disabled={store.isLoading}
 			class="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
 		>
 			<LogIn class="size-4" />
-			{isLoading ? "Entrando..." : "Entrar"}
+			{store.isLoading ? "Entrando..." : "Entrar"}
 		</button>
 	</form>
 </div>
